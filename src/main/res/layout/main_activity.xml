@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical">
+  <ScrollView
+      android:id="@+id/mainScrollView"
+      android:layout_width="fill_parent"
+      android:layout_height="fill_parent"
+      android:layout_weight="1"
+      android:fillViewport="true">
+    <TextView
+        android:text=""
+        android:id="@+id/output"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:typeface="monospace">
+    </TextView>
+  </ScrollView>
+  <EditText
+      android:id="@+id/input_code"
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:hint="@string/input_code"
+      android:typeface="monospace"
+      android:imeOptions="actionSend"
+      android:inputType="text|textNoSuggestions">
+  </EditText>
+</LinearLayout>
