@@ -1,6 +1,6 @@
 package me.elrod.tryidrisapp
 
-import android.app.{ Activity, Fragment }
+import android.app.{ Activity, AlertDialog, Fragment }
 import android.content.{ Context, Intent }
 import android.graphics.Color
 import android.os.Bundle
@@ -9,7 +9,7 @@ import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.KeyEvent
-import android.view.View
+import android.view.{ Menu, MenuInflater, MenuItem, View }
 import android.view.View.OnKeyListener
 import android.widget.ArrayAdapter
 import android.widget.TextView
@@ -44,6 +44,25 @@ class MainActivity extends Activity with TypedViewHolder {
     val input  = findView(TR.input_code)
     input.setOnEditorActionListener(new IdrisOnEditorActionListener(this, output, input))
   }
+
+  override def onCreateOptionsMenu(menu: Menu): Boolean = {
+    val inflater: MenuInflater = getMenuInflater
+    inflater.inflate(R.menu.options, menu);
+    true
+  }
+
+  override def onOptionsItemSelected(item: MenuItem): Boolean = {
+    item.getItemId match {
+      case R.id.about => {
+        val b = new AlertDialog.Builder(this)
+          .setTitle("About Try Idris")
+          .setMessage("Try Idris Android App (c) 2014 Ricky Elrod. Powered by the awesome http://tryidris.org/ by Brian McKenna.")
+          .show
+      }
+      case _ => ()
+    }
+    true
+  }
 }
 
 class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView) extends OnEditorActionListener {
@@ -58,37 +77,40 @@ class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView
   }
 
   def onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean =
-    runTheWorld(v, actionId, event).unsafePerformIO
-
-  def runTheWorld(v: TextView, actionId: Int, event: KeyEvent): IO[Boolean] = {
     if (actionId == EditorInfo.IME_ACTION_SEND) {
-      val p: Promise[IO[Unit]] = promise {
-        interpretIO(InterpretRequest(input.getText.toString))
-          .map(toUtf8String)
-          .map(_.decodeOption[InterpretResponse])
-      } map { i =>
-        i.map {
-          case Some(x) => {
-            colorize(x) match {
-              case Some(colored) => c.runOnUiThread(output.append(colored))
-              case None => c.runOnUiThread(output.append(x.result))
+      // This feels weird, but it is the best I know how to do right now.
+      runTheWorld(v, actionId, event).map(_.unsafePerformIO)
+      true
+    } else {
+      false
+    }
+
+  def runTheWorld(v: TextView, actionId: Int, event: KeyEvent): Promise[IO[Unit]] = {
+    promise {
+      interpretIO(InterpretRequest(input.getText.toString))
+        .map(toUtf8String)
+        .map(_.decodeOption[InterpretResponse])
+    } map { ioo =>
+      ioo.flatMap { res =>
+        IO {
+          c.runOnUiThread(output.append(prompt))
+          c.runOnUiThread(output.append(input.getText.toString + "\n"))
+          c.runOnUiThread(input.setText(""))
+          res match {
+            case Some(x) => {
+              colorize(x) match {
+                case Some(colored) => c.runOnUiThread(output.append(colored))
+                case None => c.runOnUiThread(output.append(x.result))
+              }
+              c.runOnUiThread(output.append("\n"))
             }
-            c.runOnUiThread(output.append("\n"))
+            case None => {
+              c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
+            }
           }
-          case None => {
-            c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
-          }
+          ()
         }
       }
-
-      for {
-        _ <- IO { output.append(prompt) }
-        _ <- IO { output.append(input.getText.toString + "\n") }
-        _ <- p.get
-        _ <- IO { input.setText("") }
-      } yield (true)
-    } else {
-      false.pure[IO]
     }
   }
 
