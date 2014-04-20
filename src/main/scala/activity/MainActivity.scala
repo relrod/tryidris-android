@@ -57,36 +57,41 @@ class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView
     p
   }
 
-  def onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean = {
+  def onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean =
+    runTheWorld(v, actionId, event).unsafePerformIO
+
+  def runTheWorld(v: TextView, actionId: Int, event: KeyEvent): IO[Boolean] = {
     if (actionId == EditorInfo.IME_ACTION_SEND) {
-      output.append(prompt)
-      output.append(input.getText.toString + "\n")
-      promise {
+      val p: Promise[IO[Unit]] = promise {
         interpretIO(InterpretRequest(input.getText.toString))
           .map(toUtf8String)
           .map(_.decodeOption[InterpretResponse])
-          .unsafePerformIO
-        } map {
-          case Some(x) => {
-            val colored = colorize(x) map {
-              case Some(colored) => c.runOnUiThread(output.append(colored))
-              case None => // :(
+          .map {
+            case Some(x) => {
+              colorize(x) match {
+                case Some(colored) => c.runOnUiThread(output.append(colored))
+                case None => c.runOnUiThread(output.append(x.result))
+              }
+              c.runOnUiThread(output.append("\n"))
             }
-            colored.unsafePerformIO // TODO: unsafePerformIO :(
-            c.runOnUiThread(output.append("\n"))
+            case None => {
+              c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
+            }
           }
-          case None => {
-            c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
-          }
-        }
-        input.setText("")
-        true
-      } else {
-        false
+      }
+
+      for {
+        _ <- IO { output.append(prompt) }
+        _ <- IO { output.append(input.getText.toString + "\n") }
+        _ <- p.get
+        _ <- IO { input.setText("") }
+      } yield (true)
+    } else {
+      false.pure[IO]
     }
   }
 
-  def colorize(r: InterpretResponse): IO[Option[SpannableString]] = IO {
+  def colorize(r: InterpretResponse): Option[SpannableString] =
     r.tokens match {
       case None => None // Well then.
       case Some(tokens) => {
@@ -110,5 +115,4 @@ class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView
         Some(s)
       }
     }
-  }
 }
