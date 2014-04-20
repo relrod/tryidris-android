@@ -25,86 +25,90 @@ import scalaz.effect.IO
 
 import scala.language.implicitConversions // lolscala
 
-class MainActivity extends Activity with TypedViewHolder {
+object Implicits {
   implicit def toRunnable[F](f: => F): Runnable = new Runnable() {
     def run(): Unit = {
       f
       ()
     }
   }
+}
 
+import Implicits._
+
+class MainActivity extends Activity with TypedViewHolder {
   override def onPostCreate(bundle: Bundle): Unit = {
     super.onPostCreate(bundle)
     setContentView(R.layout.main_activity)
     val output = findView(TR.output)
     val input  = findView(TR.input_code)
+    input.setOnEditorActionListener(new IdrisOnEditorActionListener(this, output, input))
+  }
+}
 
-    def prompt = {
-      val p = new SpannableString("idris> ")
-      p.setSpan(
-        new ForegroundColorSpan(Color.parseColor("#6D0839")),
-        0,
-        p.length,
-        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-      p
-    }
+class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView) extends OnEditorActionListener {
+  private def prompt = {
+    val p = new SpannableString("idris> ")
+    p.setSpan(
+      new ForegroundColorSpan(Color.parseColor("#6D0839")),
+      0,
+      p.length,
+      Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    p
+  }
 
-    def colorize(r: InterpretResponse): IO[Option[SpannableString]] = IO {
-      r.tokens match {
-        //case class Token(startChar: Int, length: Int, metadata: List[(String, String)])
-        case None => None // Well then.
-        case Some(tokens) => {
-          val s = new SpannableString(r.result)
-          tokens.foreach { t =>
-            val style = t.metadata.find(_._1 == ":decor").map(_._2 substring 1)
-            val color = style match {
-              case Some("name")  => Color.parseColor("#00ff00")
-              case Some("bound") => Color.parseColor("#ff00ff")
-              case Some("data")  => Color.parseColor("#ff0000")
-              case Some("type")  => Color.parseColor("#0000ff")
-              case Some("error") => Color.parseColor("#ff0000")
-              case _             => Color.parseColor("#555555")
+  def onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean = {
+    if (actionId == EditorInfo.IME_ACTION_SEND) {
+      output.append(prompt)
+      output.append(input.getText.toString + "\n")
+      promise {
+        interpretIO(InterpretRequest(input.getText.toString))
+          .map(toUtf8String)
+          .map(_.decodeOption[InterpretResponse])
+          .unsafePerformIO
+        } map {
+          case Some(x) => {
+            val colored = colorize(x) map {
+              case Some(colored) => c.runOnUiThread(output.append(colored))
+              case None => // :(
             }
-            s.setSpan(
-              new ForegroundColorSpan(color),
-              t.startChar,
-              t.startChar + t.length,
-              Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            colored.unsafePerformIO // TODO: unsafePerformIO :(
+            c.runOnUiThread(output.append("\n"))
           }
-          Some(s)
+          case None => {
+            c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
+          }
         }
+        input.setText("")
+        true
+      } else {
+        false
+    }
+  }
+
+  def colorize(r: InterpretResponse): IO[Option[SpannableString]] = IO {
+    r.tokens match {
+      case None => None // Well then.
+      case Some(tokens) => {
+        val s = new SpannableString(r.result)
+        tokens.foreach { t =>
+          val style = t.metadata.find(_._1 == ":decor").map(_._2 substring 1)
+          val color = style match {
+            case Some("name")  => Color.parseColor("#00ff00")
+            case Some("bound") => Color.parseColor("#ff00ff")
+            case Some("data")  => Color.parseColor("#ff0000")
+            case Some("type")  => Color.parseColor("#0000ff")
+            case Some("error") => Color.parseColor("#ff0000")
+            case _             => Color.parseColor("#555555")
+          }
+          s.setSpan(
+            new ForegroundColorSpan(color),
+            t.startChar,
+            t.startChar + t.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        Some(s)
       }
     }
-
-    input.setOnEditorActionListener(new OnEditorActionListener() {
-      def onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean = {
-        if (actionId == EditorInfo.IME_ACTION_SEND) {
-          output.append(prompt)
-          output.append(input.getText.toString + "\n")
-          promise {
-            interpretIO(InterpretRequest(input.getText.toString))
-              .map(toUtf8String)
-              .map(_.decodeOption[InterpretResponse])
-              .unsafePerformIO
-            } map {
-              case Some(x) => {
-                val colored = colorize(x) map {
-                  case Some(colored) => runOnUiThread(output.append(colored))
-                  case None => // :(
-                }
-                colored.unsafePerformIO // TODO: unsafePerformIO :(
-                runOnUiThread(output.append("\n"))
-              }
-              case None => {
-                runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
-              }
-            }
-            input.setText("")
-            true
-          } else {
-            false
-        }
-      }
-    })
   }
 }
