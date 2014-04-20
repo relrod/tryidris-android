@@ -66,18 +66,19 @@ class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView
         interpretIO(InterpretRequest(input.getText.toString))
           .map(toUtf8String)
           .map(_.decodeOption[InterpretResponse])
-          .map {
-            case Some(x) => {
-              colorize(x) match {
-                case Some(colored) => c.runOnUiThread(output.append(colored))
-                case None => c.runOnUiThread(output.append(x.result))
-              }
-              c.runOnUiThread(output.append("\n"))
+      } map { i =>
+        i.map {
+          case Some(x) => {
+            colorize(x) match {
+              case Some(colored) => c.runOnUiThread(output.append(colored))
+              case None => c.runOnUiThread(output.append(x.result))
             }
-            case None => {
-              c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
-            }
+            c.runOnUiThread(output.append("\n"))
           }
+          case None => {
+            c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
+          }
+        }
       }
 
       for {
