@@ -2,7 +2,9 @@
 
 An Android app for tryidris.org.
 
-This is very unprincipled and bad right now. Please don't take it seriously yet.
+**[Now available on Google Play](https://play.google.com/store/apps/details?id=me.elrod.tryidrisapp)**
+
+Please report any crashes. They are bound to happen, mostly because Scala is silly.
 
 # License
 
