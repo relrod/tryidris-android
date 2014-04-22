@@ -11,8 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.KeyEvent
 import android.view.{ Menu, MenuInflater, MenuItem, View }
 import android.view.View.OnKeyListener
-import android.widget.ArrayAdapter
-import android.widget.TextView
+import android.widget.{ ArrayAdapter, TextView, ScrollView }
 import android.widget.TextView.OnEditorActionListener
 
 import argonaut._, Argonaut._
@@ -40,9 +39,11 @@ class MainActivity extends Activity with TypedViewHolder {
   override def onPostCreate(bundle: Bundle): Unit = {
     super.onPostCreate(bundle)
     setContentView(R.layout.main_activity)
+    // TODO: These should probably be Option.
     val output = findView(TR.output)
     val input  = findView(TR.input_code)
-    input.setOnEditorActionListener(new IdrisOnEditorActionListener(this, output, input))
+    val scrollView = Option(findView(TR.mainScrollView))
+    input.setOnEditorActionListener(new IdrisOnEditorActionListener(this, output, input, scrollView))
   }
 
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
@@ -65,7 +66,11 @@ class MainActivity extends Activity with TypedViewHolder {
   }
 }
 
-class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView) extends OnEditorActionListener {
+class IdrisOnEditorActionListener(
+  c: Activity,
+  output: TextView,
+  input: TextView,
+  scrollView: Option[ScrollView]) extends OnEditorActionListener {
   private def prompt = {
     val p = new SpannableString("idris> ")
     p.setSpan(
@@ -108,6 +113,7 @@ class IdrisOnEditorActionListener(c: Activity, output: TextView, input: TextView
               c.runOnUiThread(output.append("<ERROR!> :(\n"))// Something bad happened. :'(
             }
           }
+          scrollView.map(_.fullScroll(View.FOCUS_DOWN))
           ()
         }
       }
