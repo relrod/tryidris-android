@@ -9,9 +9,9 @@ import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.KeyEvent
-import android.view.{ Menu, MenuInflater, MenuItem, View }
+import android.view.{ Menu, MenuInflater, MenuItem, View, Window }
 import android.view.View.OnKeyListener
-import android.widget.{ ArrayAdapter, TextView, ScrollView }
+import android.widget.{ ArrayAdapter, ProgressBar, TextView, ScrollView }
 import android.widget.TextView.OnEditorActionListener
 
 import argonaut._, Argonaut._
@@ -38,6 +38,7 @@ import Implicits._
 class MainActivity extends Activity with TypedViewHolder {
   override def onPostCreate(bundle: Bundle): Unit = {
     super.onPostCreate(bundle)
+    requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS)
     setContentView(R.layout.main_activity)
     // TODO: These should probably be Option.
     val output = findView(TR.output)
@@ -92,9 +93,12 @@ class IdrisOnEditorActionListener(
 
   def runTheWorld(v: TextView, actionId: Int, event: KeyEvent): Promise[IO[Unit]] = {
     promise {
-      interpretIO(InterpretRequest(input.getText.toString))
-        .map(toUtf8String)
-        .map(_.decodeOption[InterpretResponse])
+      for {
+        _ <- IO { c.runOnUiThread(c.setProgressBarIndeterminateVisibility(true)) }
+        resp <- interpretIO(InterpretRequest(input.getText.toString))
+             .map(toUtf8String)
+             .map(_.decodeOption[InterpretResponse])
+      } yield (resp)
     } map { ioo =>
       ioo.flatMap { res =>
         IO {
@@ -114,6 +118,7 @@ class IdrisOnEditorActionListener(
             }
           }
           scrollView.map(_.fullScroll(View.FOCUS_DOWN))
+          c.runOnUiThread(c.setProgressBarIndeterminateVisibility(false))
           ()
         }
       }
