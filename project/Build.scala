@@ -7,15 +7,15 @@ object General {
   val settings = Defaults.defaultSettings ++ Seq (
     name := "TryIdris",
     version := "0.1",
-    scalaVersion := "2.10.3",
+    scalaVersion := "2.10.4",
     resolvers             ++= Seq(
       "sonatype-s" at "http://oss.sonatype.org/content/repositories/snapshots",
-      "fedorapeople" at "http://codeblock.fedorapeople.org/maven"
+      "fedorapeople" at "https://codeblock.fedorapeople.org/maven"
     ),
     libraryDependencies   ++= Seq(
-      "org.scalaz" %% "scalaz-core" % "7.0.4",
-      "org.scalaz.stream" %% "scalaz-stream" % "0.2-SNAPSHOT",
-      "io.argonaut" %% "argonaut" % "6.0.3",
+      "org.scalaz" %% "scalaz-core" % "7.1.0",
+      //"org.scalaz.stream" %% "scalaz-stream" % "0.2-SNAPSHOT",
+      "io.argonaut" %% "argonaut" % "6.0.4",
       "me.elrod" %% "tryidris" % "0.1-SNAPSHOT"
     ),
     scalacOptions         := Seq(
